@@ -745,9 +745,9 @@ textarea { resize: vertical; min-height: 100px; }
       style="width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;font-size:14px;text-decoration:line-through;color:var(--text);">S</button>
   </div>
   <div id="nt-content" contenteditable="true"
-    style="flex:1;border:none;outline:none;padding:16px 28px 28px;font-size:15px;line-height:1.7;background:transparent;color:var(--text);font-family:inherit;overflow-y:auto;word-break:break-word;"
-    data-placeholder="내용을 입력하세요..."></div>
-</div>
+  style="flex:1;border:none;outline:none;padding:16px 28px 28px;font-size:15px;line-height:1.7;background:transparent;color:var(--text);font-family:inherit;overflow-y:auto;overflow-x:visible;word-break:break-word;"
+  data-placeholder="내용을 입력하세요..."></div>
+
 <style>
 #nt-content:empty:before { content: attr(data-placeholder); color: var(--sub); pointer-events: none; }
 
@@ -757,7 +757,7 @@ textarea { resize: vertical; min-height: 100px; }
 #nt-content ul ul ul, .note-detail ul ul ul  { list-style-type: square; }
 
 /* 번호 목록 */
-#nt-content ol, .note-detail ol { list-style: none; padding-left: 40px; margin: 4px 0; counter-reset: ol-counter; }
+#nt-content ol, .note-detail ol { list-style: none; padding-left: 40px; margin: 4px 0; counter-reset: ol-counter; overflow: visible; }
 #nt-content ol li, .note-detail ol li { position: relative; padding-left: 8px; counter-increment: ol-counter; }
 #nt-content ol li::before, .note-detail ol li::before {
   content: counter(ol-counter) ".";
@@ -768,8 +768,10 @@ textarea { resize: vertical; min-height: 100px; }
 #nt-content ol ol li, .note-detail ol ol li { counter-increment: ol-sub-counter; }
 #nt-content ol ol li::before, .note-detail ol ol li::before { content: counter(ol-sub-counter) ")"; }
 
-
 #nt-content li, .note-detail li { margin: 2px 0; }
+
+
+  
 </style>
 
 <script>
