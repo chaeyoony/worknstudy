@@ -756,23 +756,16 @@ textarea { resize: vertical; min-height: 100px; }
 #nt-content ul ul, .note-detail ul ul        { list-style-type: circle; }
 #nt-content ul ul ul, .note-detail ul ul ul  { list-style-type: square; }
 
-/* 번호 목록: 각 레벨별 독립 카운터 (Safari 호환) */
-#nt-content ol, .note-detail ol              { list-style: none; padding-left: 22px; margin: 4px 0; }
+/* 번호 목록: JS(applyOlLabels)로 번호 주입 — Safari CSS 카운터 버그 우회 */
+#nt-content ol, .note-detail ol { list-style: none; padding-left: 22px; margin: 4px 0; }
+#nt-content ol li, .note-detail ol li { position: relative; padding-left: 4px; }
+#nt-content ol li::before, .note-detail ol li::before {
+  content: attr(data-ol-label);
+  position: absolute; right: 100%; padding-right: 4px;
+  white-space: nowrap; color: var(--text);
+}
+}
 
-/* 레벨 1: 1. */
-#nt-content ol, .note-detail ol                            { counter-reset: ol1; }
-#nt-content ol > li, .note-detail ol > li                  { counter-increment: ol1; }
-#nt-content ol > li::before, .note-detail ol > li::before  { content: counter(ol1) ". "; display: inline-block; width: 20px; margin-left: -20px; text-align: right; }
-
-/* 레벨 2: 1) — 카운터 ol2로 독립 */
-#nt-content ol ol, .note-detail ol ol                      { counter-reset: ol2; }
-#nt-content ol ol > li, .note-detail ol ol > li            { counter-increment: ol2; }
-#nt-content ol ol > li::before, .note-detail ol ol > li::before { content: counter(ol2) ") "; display: inline-block; width: 20px; margin-left: -20px; text-align: right; }
-
-/* 레벨 3: (1) — 카운터 ol3으로 독립 */
-#nt-content ol ol ol, .note-detail ol ol ol                { counter-reset: ol3; }
-#nt-content ol ol ol > li, .note-detail ol ol ol > li      { counter-increment: ol3; }
-#nt-content ol ol ol > li::before, .note-detail ol ol ol > li::before { content: "(" counter(ol3) ") "; display: inline-block; width: 28px; margin-left: -28px; text-align: right; }
 
 #nt-content li, .note-detail li { margin: 2px 0; }
 </style>
@@ -967,6 +960,33 @@ const priOrder = p=>p==='high'?0:p==='mid'?1:2;
 const priTag = p=>p==='high'?'<span class="tag tag-high">높음</span>':p==='mid'?'<span class="tag tag-mid">중간</span>':'<span class="tag tag-low">낮음</span>';
 const VAC_DEDUCT = {'연차':1,'전반차':.5,'후반차':.5,'반반차':.25};
 const cfg = ()=>MODES[currentMode];
+
+
+  // ===== OL NUMBERING (Safari CSS 카운터 버그 우회) =====
+function applyOlLabels(root) {
+  if (!root) return;
+  function labelFmt(depth) {
+    if (depth === 0) return n => n + '.';
+    if (depth === 1) return n => n + ')';
+    return n => '(' + n + ')';
+  }
+  function walk(ol, depth) {
+    let n = 0;
+    for (const child of ol.children) {
+      if (child.tagName !== 'LI') continue;
+      n++;
+      child.setAttribute('data-ol-label', labelFmt(depth)(n));
+      for (const nested of child.children) {
+        if (nested.tagName === 'OL') walk(nested, depth + 1);
+      }
+    }
+  }
+  root.querySelectorAll('ol').forEach(ol => {
+    if (!ol.parentElement.closest('ol')) walk(ol, 0);
+  });
+}
+
+  
 
 // ===== MODE SWITCH =====
 async function setMode(mode) {
@@ -1655,7 +1675,13 @@ function renderNotes() {
 }
 function setNoteGroup(g){activeNoteGroup=g;renderNotes();}
 function setNoteMonth(m){activeNoteMonth=m;renderNotes();}
-function toggleNote(id){document.getElementById('nc-'+id).classList.toggle('expanded');}
+function toggleNote(id){
+  const card = document.getElementById('nc-'+id);
+  card.classList.toggle('expanded');
+  if (card.classList.contains('expanded')) {
+    applyOlLabels(card.querySelector('.note-detail'));
+  }
+}
 
 // ===== TAG MANAGER =====
 function openTagMgr() {
@@ -1791,6 +1817,9 @@ function openNoteEditor() {
   ed.style.display = 'flex';
   ed.style.paddingBottom = '';
   const c = document.getElementById('nt-content');
+  c.removeEventListener('input', _onNtInput);
+  c.addEventListener('input', _onNtInput);
+
   c.onkeydown = e => {
     // Ctrl+B / Ctrl+U 단축키
     if((e.ctrlKey||e.metaKey)&&e.key==='b'){e.preventDefault();noteCmd('bold');return;}
@@ -1862,8 +1891,16 @@ function openNoteEditor() {
       }
     }
   };
-  setTimeout(()=>document.getElementById('nt-title').focus(), 100);
+  setTimeout(()setTimeout(()=>{
+  document.getElementById('nt-title').focus();
+  applyOlLabels(c);
+}, 100);
+
+function _onNtInput() {
+  applyOlLabels(document.getElementById('nt-content'));
 }
+
+  
 function closeNoteEditor() {
   document.getElementById('note-editor').style.display = 'none';
   renderNotes();
