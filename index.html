@@ -757,13 +757,16 @@ textarea { resize: vertical; min-height: 100px; }
 #nt-content ul ul ul, .note-detail ul ul ul  { list-style-type: square; }
 
 /* 번호 목록: JS(applyOlLabels)로 번호 주입 — Safari CSS 카운터 버그 우회 */
-#nt-content ol, .note-detail ol { list-style: none; padding-left: 22px; margin: 4px 0; }
+#nt-content ol, .note-detail ol { list-style: none; padding-left: 28px; margin: 4px 0; }
 #nt-content ol li, .note-detail ol li { position: relative; padding-left: 4px; }
 #nt-content ol li::before, .note-detail ol li::before {
   content: attr(data-ol-label);
   position: absolute; right: 100%; padding-right: 4px;
   white-space: nowrap; color: var(--text);
+  min-width: 1em;
 }
+
+
 #nt-content li, .note-detail li { margin: 2px 0; }
 </style>
 
@@ -976,7 +979,16 @@ function applyOlLabels(root) {
     for (const child of ol.children) {
       if (child.tagName !== 'LI') continue;
       n++;
-      child.setAttribute('data-ol-label', labelFmt(depth)(n));
+      const label = labelFmt(depth)(n);
+      child.setAttribute('data-ol-label', label);
+      // Safari용: 기존 라벨 span 제거 후 새로 삽입
+      const old = child.querySelector(':scope > .ol-label-span');
+      if (old) old.remove();
+      const span = document.createElement('span');
+      span.className = 'ol-label-span';
+      span.style.cssText = 'position:absolute;right:100%;padding-right:4px;white-space:nowrap;color:var(--text);pointer-events:none;';
+      span.textContent = label;
+      child.insertBefore(span, child.firstChild);
       for (const nested of child.children) {
         if (nested.tagName === 'OL') walk(nested, depth + 1);
       }
