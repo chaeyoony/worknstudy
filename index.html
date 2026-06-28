@@ -756,15 +756,17 @@ textarea { resize: vertical; min-height: 100px; }
 #nt-content ul ul, .note-detail ul ul        { list-style-type: circle; }
 #nt-content ul ul ul, .note-detail ul ul ul  { list-style-type: square; }
 
-/* 번호 목록: JS(applyOlLabels)로 번호 주입 — Safari CSS 카운터 버그 우회 */
-#nt-content ol, .note-detail ol { list-style: none; padding-left: 28px; margin: 4px 0; }
-#nt-content ol li, .note-detail ol li { position: relative; padding-left: 4px; }
+/* 번호 목록 */
+#nt-content ol, .note-detail ol { list-style: none; padding-left: 28px; margin: 4px 0; counter-reset: ol-counter; }
+#nt-content ol li, .note-detail ol li { position: relative; padding-left: 4px; counter-increment: ol-counter; }
 #nt-content ol li::before, .note-detail ol li::before {
-  content: attr(data-ol-label);
+  content: counter(ol-counter) ".";
   position: absolute; right: 100%; padding-right: 4px;
   white-space: nowrap; color: var(--text);
-  min-width: 1em;
 }
+#nt-content ol ol, .note-detail ol ol { counter-reset: ol-sub-counter; }
+#nt-content ol ol li, .note-detail ol ol li { counter-increment: ol-sub-counter; }
+#nt-content ol ol li::before, .note-detail ol ol li::before { content: counter(ol-sub-counter) ")"; }
 
 
 #nt-content li, .note-detail li { margin: 2px 0; }
@@ -966,41 +968,7 @@ const VAC_DEDUCT = {'연차':1,'전반차':.5,'후반차':.5,'반반차':.25};
 const cfg = ()=>MODES[currentMode];
 
 
-  // ===== OL NUMBERING (Safari CSS 카운터 버그 우회) =====
-function applyOlLabels(root) {
-  if (!root) return;
-  function labelFmt(depth) {
-    if (depth === 0) return n => n + '.';
-    if (depth === 1) return n => n + ')';
-    return n => '(' + n + ')';
-  }
-  function walk(ol, depth) {
-    let n = 0;
-    for (const child of ol.children) {
-      if (child.tagName !== 'LI') continue;
-      n++;
-      const label = labelFmt(depth)(n);
-      child.setAttribute('data-ol-label', label);
-      // Safari용: 기존 라벨 span 제거 후 새로 삽입
-      const old = child.querySelector(':scope > .ol-label-span');
-      if (old) old.remove();
-      const span = document.createElement('span');
-      span.className = 'ol-label-span';
-      span.style.cssText = 'position:absolute;right:100%;padding-right:4px;white-space:nowrap;color:var(--text);pointer-events:none;';
-      span.textContent = label;
-      child.insertBefore(span, child.firstChild);
-      for (const nested of child.children) {
-        if (nested.tagName === 'OL') walk(nested, depth + 1);
-      }
-    }
-  }
-  root.querySelectorAll('ol').forEach(ol => {
-    if (!ol.parentElement.closest('ol')) walk(ol, 0);
-  });
-}
-
   
-
 // ===== MODE SWITCH =====
 async function setMode(mode) {
   currentMode = mode;
@@ -1692,7 +1660,6 @@ function toggleNote(id){
   const card = document.getElementById('nc-'+id);
   card.classList.toggle('expanded');
   if (card.classList.contains('expanded')) {
-    applyOlLabels(card.querySelector('.note-detail'));
   }
 }
 
@@ -1830,8 +1797,6 @@ function openNoteEditor() {
   ed.style.display = 'flex';
   ed.style.paddingBottom = '';
   const c = document.getElementById('nt-content');
-  c.removeEventListener('input', _onNtInput);
-  c.addEventListener('input', _onNtInput);
 
   c.onkeydown = e => {
     // Ctrl+B / Ctrl+U 단축키
@@ -1906,12 +1871,7 @@ function openNoteEditor() {
   };
   setTimeout(() => {
     document.getElementById('nt-title').focus();
-    applyOlLabels(c);
   }, 100);
-}
-
-function _onNtInput() {
-  applyOlLabels(document.getElementById('nt-content'));
 }
 
 function closeNoteEditor() {
