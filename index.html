@@ -1,3 +1,8 @@
+window.onerror = function(msg, src, line) {
+  document.body.innerHTML = '<div style="padding:20px;font-size:14px;color:red"><b>오류:</b> ' + msg + '<br>줄: ' + line + '</div>';
+  return true;
+};
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
