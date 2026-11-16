@@ -37,3 +37,6 @@ drop policy if exists "anon all reading_books" on reading_books;
 drop policy if exists "anon all reading_logs"  on reading_logs;
 create policy "anon all reading_books" on reading_books for all to anon using (true) with check (true);
 create policy "anon all reading_logs"  on reading_logs  for all to anon using (true) with check (true);
+
+-- 4) (추가) '날짜 모름(월만 기록)' 기능용 칸 — 이미 위 테이블을 만든 경우 이 한 줄만 따로 실행하세요
+alter table reading_logs add column if not exists date_unknown boolean not null default false;

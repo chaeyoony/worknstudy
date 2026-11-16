@@ -69,7 +69,7 @@ button{font-family:inherit;cursor:pointer}
 .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;color:#4a3a28}
 .empty{text-align:center;color:var(--sub);padding:44px 12px;font-size:14px;line-height:1.7}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
-input[type=text],input[type=date],input[type=number],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:16px;font-family:inherit;background:var(--bg);color:var(--text);-webkit-appearance:none;appearance:none}
+input[type=text],input[type=date],input[type=month],input[type=number],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:16px;font-family:inherit;background:var(--bg);color:var(--text);-webkit-appearance:none;appearance:none}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
 textarea{min-height:92px;resize:vertical}
@@ -424,7 +424,7 @@ function htmlCal(){
   const pre = ymd(new Date(y,m,1)).slice(0,7);
   const byDay = {};   // 날짜 → { bookId: pages }
   const finDay = {};
-  S.logs.filter(l=>l.log_date.startsWith(pre)).forEach(l=>{
+  S.logs.filter(l=>l.log_date.startsWith(pre) && !l.date_unknown).forEach(l=>{
     ((byDay[l.log_date] ||= {})[l.book_id] = (byDay[l.log_date]?.[l.book_id]||0) + (l.pages||0));
   });
   S.books.filter(b=>b.status==='done' && (b.finished_at||'').startsWith(pre)).forEach(b=>{ (finDay[b.finished_at] ||= []).push(b.id); });
@@ -447,6 +447,8 @@ function htmlCal(){
     </div>`;
   }
   const doneCnt = S.books.filter(b=>b.status==='done' && (b.finished_at||'').startsWith(pre)).length;
+  const unk = S.logs.filter(l=>l.date_unknown && l.log_date.startsWith(pre));
+  unk.forEach(l=>{ totalPages += l.pages||0; bookSet.add(l.book_id); });
   return `
     <div class="h">
       <div class="calnav">
@@ -466,6 +468,7 @@ function htmlCal(){
       ${DOW.map(d=>`<div class="dow">${d}</div>`).join('')}
       ${cells}
     </div>
+    ${unk.length ? `<div class="card" style="margin-top:12px"><div class="small" style="margin-bottom:8px;font-weight:700">📌 날짜 없이 기록한 책 · ${unk.reduce((a,l)=>a+(l.pages||0),0)}쪽</div><div class="mstrip" style="justify-content:flex-start">${monthCovers(unk)}</div></div>` : ''}
     <p class="small" style="margin-top:10px">날짜를 누르면 그날의 기록을 보고 추가할 수 있어요. 표지가 없는 책은 제목으로 표시돼요.</p>`;
 }
 function moveMonth(d){ const x = new Date(S.calY, S.calM+d, 1); S.calY=x.getFullYear(); S.calM=x.getMonth(); render(); }
@@ -504,7 +507,7 @@ function htmlStat(){
   const books = touched(y);
   const logs = S.logs.filter(l=>l.log_date.startsWith(y));
   const pages = logs.reduce((a,l)=>a+(l.pages||0),0);
-  const days = new Set(logs.map(l=>l.log_date)).size;
+  const days = new Set(logs.filter(l=>!l.date_unknown).map(l=>l.log_date)).size;
   const done = S.books.filter(b=>b.status==='done' && (b.finished_at||'').startsWith(y)).length;
   const cc = catCounts(books), max = Math.max(1, ...cc.map(x=>x[1]));
   const lit = books.filter(b=>isLit(b.category)).length, non = books.length - lit;
@@ -727,12 +730,13 @@ async function deleteBook(id){
 function logListHtml(list, showBook, showDate){
   if(showDate===undefined) showDate = !showBook;
   if(!list.length) return '<div class="empty" style="padding:22px 0">기록이 아직 없어요.</div>';
-  return [...list].sort((a,b)=> b.log_date.localeCompare(a.log_date) || (b.created_at||'').localeCompare(a.created_at||'')).map(l=>{
+  const key = l => l.date_unknown ? l.log_date.slice(0,7)+'-00' : l.log_date;
+  return [...list].sort((a,b)=> key(b).localeCompare(key(a)) || (b.created_at||'').localeCompare(a.created_at||'')).map(l=>{
     const b = getBook(l.book_id);
     const range = l.page_from && l.page_to ? `p.${l.page_from}–${l.page_to}` : '';
     return `<div class="log" onclick="openLog('${l.book_id}','${l.id}')">
       ${showBook && b ? `<div class="bt">${cover(b)}<span>${esc(b.title)}</span></div>` : ''}
-      <div class="lh"><span>${showDate ? fmtMD(l.log_date)+' · ' : ''}${l.pages||0}쪽 ${range}</span></div>
+      <div class="lh"><span>${showDate ? (l.date_unknown ? `${+l.log_date.slice(5,7)}월 (날짜 미상)` : fmtMD(l.log_date))+' · ' : ''}${l.pages||0}쪽 ${range}</span></div>
       ${l.quote ? `<div class="q">${esc(l.quote)}</div>` : ''}
       ${l.thought ? `<div class="t">💭 ${esc(l.thought)}</div>` : ''}
     </div>`;
@@ -743,7 +747,7 @@ function logListHtml(list, showBook, showDate){
 function openDay(ds){
   const ov = openModal('');
   const paint = ()=>{
-    const logs = S.logs.filter(l=>l.log_date===ds);
+    const logs = S.logs.filter(l=>l.log_date===ds && !l.date_unknown);
     const pages = logs.reduce((a,l)=>a+(l.pages||0),0);
     const fins = S.books.filter(b=>b.status==='done' && b.finished_at===ds);
     ov.firstChild.innerHTML = `
@@ -766,6 +770,8 @@ function openLog(bookId, logId, date){
   // 이어 읽기 편하도록 이전 기록의 끝 쪽 + 1을 시작 쪽으로 제안
   const prev = Math.max(0, ...S.logs.filter(x=>x.book_id===sel).map(x=>x.page_to||0));
   const d = l || { log_date: date || todayStr(), page_from: prev ? prev+1 : '', page_to:'', pages:'', quote:'', thought:'' };
+  const unk = !!d.date_unknown;
+  S.batch = 0;
   openModal(`
     <h3>${l?'기록 수정':'독서 기록'} ${xbtn}</h3>
     <div class="fg"><label>책</label>
@@ -773,7 +779,11 @@ function openLog(bookId, logId, date){
         ${reading.length?`<optgroup label="읽는 중 / 읽고 싶음">${reading.map(opt).join('')}</optgroup>`:''}
         ${rest.length?`<optgroup label="완독">${rest.map(opt).join('')}</optgroup>`:''}
       </select></div>
-    <div class="fg"><label>날짜</label><input type="date" id="lf-date" value="${d.log_date}"></div>
+    <div class="fg"><label>날짜</label>
+      <input type="date" id="lf-date" value="${d.log_date}" class="${unk?'hidden':''}">
+      <input type="month" id="lf-month" value="${d.log_date.slice(0,7)}" class="${unk?'':'hidden'}">
+      <div class="chk"><input type="checkbox" id="lf-unk" ${unk?'checked':''} onchange="lfUnk()"><label for="lf-unk">날짜 모름 (월만 기록)</label></div>
+    </div>
     <div class="row fg">
       <div><label>시작 쪽</label><input type="number" id="lf-from" inputmode="numeric" value="${d.page_from??''}" oninput="lfCalc()"></div>
       <div><label>끝 쪽</label><input type="number" id="lf-to" inputmode="numeric" value="${d.page_to??''}" oninput="lfCalc()"></div>
@@ -784,7 +794,8 @@ function openLog(bookId, logId, date){
     ${l?'':`<div class="chk"><input type="checkbox" id="lf-done"><label for="lf-done">이 책을 다 읽었어요 (완독 처리)</label></div>`}
     <div class="foot">
       ${l?`<button class="btn danger" style="margin-right:auto" onclick="deleteLog('${l.id}')">삭제</button>`:''}
-      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn ghost" onclick="closeModal()">닫기</button>
+      ${l?'':`<button class="btn ghost" onclick="saveLog(null,true)">저장하고 이어서</button>`}
       <button class="btn" onclick="saveLog(${l?`'${l.id}'`:'null'})">저장</button>
     </div>`);
 }
@@ -798,18 +809,33 @@ function lfCalc(){
   const f = parseInt($('lf-from').value), t = parseInt($('lf-to').value), p = $('lf-pages');
   if(!p.dataset.manual && f>0 && t>=f) p.value = t - f + 1;
 }
-async function saveLog(id){
+function lfUnk(){
+  const u = $('lf-unk').checked;
+  if(u && $('lf-date').value) $('lf-month').value = $('lf-date').value.slice(0,7);
+  if(!u && $('lf-month').value && !$('lf-date').value.startsWith($('lf-month').value)) $('lf-date').value = $('lf-month').value + '-01';
+  $('lf-date').classList.toggle('hidden', u);
+  $('lf-month').classList.toggle('hidden', !u);
+}
+async function saveLog(id, again){
   const book_id = $('lf-book').value;
   const f = parseInt($('lf-from').value) || null, t = parseInt($('lf-to').value) || null;
   let pages = parseInt($('lf-pages').value);
   if(!(pages>=0)) pages = (f && t && t>=f) ? t-f+1 : 0;
   const quote = $('lf-quote').value.trim(), thought = $('lf-thought').value.trim();
   if(!pages && !quote && !thought){ toast('쪽수나 내용을 하나는 적어주세요'); return; }
-  const row = { book_id, log_date:$('lf-date').value || todayStr(), page_from:f, page_to:t, pages, quote, thought };
+  const unk = $('lf-unk').checked;
+  const old = id ? S.logs.find(x=>x.id===id) : null;
+  const row = { book_id, page_from:f, page_to:t, pages, quote, thought,
+    log_date: unk ? ($('lf-month').value || todayStr().slice(0,7)) + '-01' : ($('lf-date').value || todayStr()) };
+  // date_unknown 칸이 아직 없는 DB에서도 기존 방식은 그대로 동작하도록, 필요할 때만 보냄
+  if(unk || old?.date_unknown) row.date_unknown = unk;
   const q = id ? SB.from(T_LOG).update(row).eq('id',id) : SB.from(T_LOG).insert(row).select().single();
   const { data, error } = await q;
-  if(error){ toast('저장 실패: '+error.message); return; }
-  if(id) Object.assign(S.logs.find(x=>x.id===id), row); else S.logs.unshift(data);
+  if(error){
+    toast(/date_unknown/.test(error.message) ? '먼저 Supabase에서 SQL 한 줄을 실행해주세요 (안내 참고)' : '저장 실패: '+error.message);
+    return;
+  }
+  if(id) Object.assign(old, row); else S.logs.unshift(data);
 
   // 책 상태 자동 갱신: 읽고 싶음 → 읽는 중, 시작일 기록, 완독 체크 시 완독 처리
   const b = getBook(book_id), patch = {};
@@ -821,7 +847,20 @@ async function saveLog(id){
     const r = await SB.from(T_BOOK).update(patch).eq('id',book_id);
     if(!r.error) Object.assign(b, patch);
   }
-  closeModal(); refreshAll(); toast(patch.status==='done' ? '완독 축하해요 🎉' : '기록했어요 ✏️');
+
+  if(again && patch.status!=='done'){
+    // 같은 책·날짜를 유지한 채 다음 기록을 이어서 입력
+    S.batch++;
+    refreshAll();
+    $('lf-from').value = t ? t+1 : '';
+    $('lf-to').value = ''; $('lf-pages').value = ''; delete $('lf-pages').dataset.manual;
+    $('lf-quote').value = ''; $('lf-thought').value = '';
+    $('lf-to').focus();
+    toast(`${S.batch}개 기록했어요 ✏️ 이어서 적어보세요`);
+    return;
+  }
+  closeModal(); refreshAll();
+  toast(patch.status==='done' ? '완독 축하해요 🎉' : (S.batch ? `${S.batch+1}개 기록했어요 ✏️` : '기록했어요 ✏️'));
 }
 async function deleteLog(id){
   if(!confirm('이 기록을 삭제할까요?')) return;
