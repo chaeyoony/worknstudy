@@ -537,7 +537,7 @@ function openAddBook(){
 }
 
 // 카카오 책 검색 키 (developers.kakao.com → 내 애플리케이션 → REST API 키). 비워두면 앱 안 설정값(이 기기)을 사용
-const KAKAO_KEY = '';
+const KAKAO_KEY = '27df2b9b48cc0814e5ef291ed4b2da4c';
 const getKakaoKey = () => KAKAO_KEY || (()=>{ try{ return localStorage.getItem('rd_kakao')||''; }catch(e){ return ''; } })();
 function saveKakaoKey(){
   const v = $('kk').value.trim();
