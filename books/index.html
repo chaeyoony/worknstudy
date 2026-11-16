@@ -101,6 +101,17 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin:0 0 5
 .filters select{width:auto;min-width:120px}
 @media(min-width:900px){.shelf{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:24px 16px}}
 
+/* ---------- 기록 / 월별 현황 ---------- */
+.mh{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:18px 0 10px;padding:10px 12px;background:var(--accent-light);border-radius:12px}
+.mh b{display:block;font-size:15px}
+.mstrip{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.mstrip .cover{width:34px;border-radius:4px}
+.mstrip .cover .ph{font-size:6px;padding:2px}
+.mrow{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.mrow:last-child{border:none}
+.mrow .mm{width:44px;flex-shrink:0;font-weight:800;color:var(--accent);font-size:14px}
+.mrow .mstrip{flex:1;justify-content:flex-start}
+.mrow .mp{font-size:12px;color:var(--sub);font-weight:700;white-space:nowrap}
 /* ---------- 달력 ---------- */
 .calnav{display:flex;align-items:center;gap:8px}
 .calnav h1{min-width:120px}
@@ -181,6 +192,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin:0 0 5
 <aside id="side">
   <div class="logo">📚 채윤 독서생활</div>
   <button class="tab" data-tab="shelf" onclick="setTab('shelf')"><span>📖</span>서재</button>
+  <button class="tab" data-tab="log" onclick="setTab('log')"><span>✏️</span>독서 기록</button>
   <button class="tab" data-tab="cal" onclick="setTab('cal')"><span>📅</span>독서 달력</button>
   <button class="tab" data-tab="stat" onclick="setTab('stat')"><span>📊</span>통계</button>
   <a class="back" href="../">← 일상으로</a>
@@ -198,6 +210,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin:0 0 5
 
 <nav id="bot">
   <button data-tab="shelf" onclick="setTab('shelf')"><span class="ic">📖</span>서재</button>
+  <button data-tab="log" onclick="setTab('log')"><span class="ic">✏️</span>기록</button>
   <button data-tab="cal" onclick="setTab('cal')"><span class="ic">📅</span>달력</button>
   <button data-tab="stat" onclick="setTab('stat')"><span class="ic">📊</span>통계</button>
 </nav>
@@ -266,7 +279,7 @@ const fmtMD = s => { const [,m,d] = s.split('-'); return `${+m}월 ${+d}일`; };
 const DOW = ['일','월','화','수','목','금','토'];
 
 const S = { books:[], logs:[], tab:'shelf', fStatus:'all', fCat:'all', q:'',
-  calY:new Date().getFullYear(), calM:new Date().getMonth(), statY:new Date().getFullYear(), results:[], loaded:false };
+  calY:new Date().getFullYear(), calM:new Date().getMonth(), statY:new Date().getFullYear(), fLogBook:'all', q2:'', results:[], loaded:false };
 const getBook = id => S.books.find(b=>b.id===id);
 
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),1800); }
@@ -319,7 +332,7 @@ function render(){
   document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on', b.dataset.tab===S.tab));
   const v = $('view');
   if(!S.loaded){ v.innerHTML = '<div class="empty">불러오는 중…</div>'; return; }
-  v.innerHTML = S.tab==='shelf' ? htmlShelf() : S.tab==='cal' ? htmlCal() : htmlStat();
+  v.innerHTML = S.tab==='shelf' ? htmlShelf() : S.tab==='log' ? htmlLog() : S.tab==='cal' ? htmlCal() : htmlStat();
 }
 function refreshAll(){ render(); stack.forEach(o=>o.refresh && o.refresh()); }
 
@@ -369,6 +382,39 @@ function shelfList(){
   const el = $('shelf-items'); if(!el) return;
   const tmp = document.createElement('div'); tmp.innerHTML = htmlShelf();
   el.innerHTML = tmp.querySelector('#shelf-items').innerHTML;
+}
+
+// ---------------- 독서 기록 ----------------
+function monthCovers(logs){
+  const ids = [...new Set(logs.map(l=>l.book_id))];
+  return ids.map(id=>{ const b=getBook(id); return b ? cover(b) : ''; }).join('');
+}
+function logItems(){
+  const q = S.q2.trim().toLowerCase();
+  const logs = S.logs.filter(l =>
+    (S.fLogBook==='all' || l.book_id===S.fLogBook) &&
+    (!q || ((l.quote||'')+' '+(l.thought||'')+' '+(getBook(l.book_id)?.title||'')).toLowerCase().includes(q)));
+  if(!logs.length) return `<div class="empty">${S.logs.length ? '조건에 맞는 기록이 없어요.' : '아직 독서 기록이 없어요.<br>아래 <b>✏️ 기록하기</b>를 눌러 첫 기록을 남겨보세요.<br>기록하면 달마다 읽은 책 표지가 여기에 모여요 📚'}</div>`;
+  const months = {};
+  logs.forEach(l=>(months[l.log_date.slice(0,7)] ||= []).push(l));
+  return Object.keys(months).sort().reverse().map(k=>{
+    const list = months[k], pages = list.reduce((a,l)=>a+(l.pages||0),0), n = new Set(list.map(l=>l.book_id)).size;
+    return `<div class="mh"><div><b>${k.slice(0,4)}년 ${+k.slice(5)}월</b><span class="small">${pages}쪽 · ${n}권 · 기록 ${list.length}개</span></div><div class="mstrip">${monthCovers(list)}</div></div>
+      ${logListHtml(list, true, true)}`;
+  }).join('');
+}
+function htmlLog(){
+  const ids = [...new Set(S.logs.map(l=>l.book_id))].map(getBook).filter(Boolean);
+  return `
+    <div class="h"><h1>✏️ 독서 기록</h1><button class="btn" onclick="openLog()">＋ 기록하기</button></div>
+    <div class="filters">
+      <input type="text" placeholder="필사·생각 내용 검색" value="${esc(S.q2)}" oninput="S.q2=this.value;$('log-items').innerHTML=logItems()">
+      <select onchange="S.fLogBook=this.value;$('log-items').innerHTML=logItems()">
+        <option value="all">모든 책</option>
+        ${ids.map(b=>`<option value="${b.id}" ${S.fLogBook===b.id?'selected':''}>${esc(b.title)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="log-items">${logItems()}</div>`;
 }
 
 // ---------------- 달력 ----------------
@@ -441,6 +487,16 @@ function catCounts(books){
   const m = {}; books.forEach(b=>m[b.category]=(m[b.category]||0)+1);
   return Object.entries(m).sort((a,b)=>b[1]-a[1]);
 }
+function monthRows(y){
+  let out = '';
+  for(let m=12; m>=1; m--){
+    const logs = S.logs.filter(l=>l.log_date.startsWith(`${y}-${pad(m)}`));
+    if(!logs.length) continue;
+    const pages = logs.reduce((a,l)=>a+(l.pages||0),0);
+    out += `<div class="mrow"><div class="mm">${m}월</div><div class="mstrip">${monthCovers(logs)}</div><div class="mp">${pages}쪽</div></div>`;
+  }
+  return out;
+}
 function htmlStat(){
   const years = yearsList();
   if(!years.includes(String(S.statY))) S.statY = years[0];
@@ -486,6 +542,11 @@ function htmlStat(){
     <div class="card" style="margin-top:12px">
       <div class="sec" style="margin-top:0">월별 읽은 쪽수</div>
       <div class="mbars">${mp.map((v,i)=>`<div class="c"><em>${v||''}</em><i style="height:${v/mmax*100}%"></i>${i+1}</div>`).join('')}</div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="sec" style="margin-top:0">${y}년 월별 읽은 책</div>
+      ${monthRows(y) || '<div class="empty">이 해의 기록이 아직 없어요.</div>'}
     </div>
 
     ${books.length ? `<div class="card" style="margin-top:12px"><div class="sec" style="margin-top:0">${y}년에 만난 책</div>
@@ -663,14 +724,15 @@ async function deleteBook(id){
 }
 
 // ---------------- 독서 기록 목록 (책 상세/날짜 상세 공용) ----------------
-function logListHtml(list, showBook){
+function logListHtml(list, showBook, showDate){
+  if(showDate===undefined) showDate = !showBook;
   if(!list.length) return '<div class="empty" style="padding:22px 0">기록이 아직 없어요.</div>';
   return [...list].sort((a,b)=> b.log_date.localeCompare(a.log_date) || (b.created_at||'').localeCompare(a.created_at||'')).map(l=>{
     const b = getBook(l.book_id);
     const range = l.page_from && l.page_to ? `p.${l.page_from}–${l.page_to}` : '';
     return `<div class="log" onclick="openLog('${l.book_id}','${l.id}')">
       ${showBook && b ? `<div class="bt">${cover(b)}<span>${esc(b.title)}</span></div>` : ''}
-      <div class="lh"><span>${showBook ? '' : fmtMD(l.log_date)+' · '}${l.pages||0}쪽 ${range}</span><span class="small">${showBook?'':''}</span></div>
+      <div class="lh"><span>${showDate ? fmtMD(l.log_date)+' · ' : ''}${l.pages||0}쪽 ${range}</span></div>
       ${l.quote ? `<div class="q">${esc(l.quote)}</div>` : ''}
       ${l.thought ? `<div class="t">💭 ${esc(l.thought)}</div>` : ''}
     </div>`;
@@ -772,7 +834,7 @@ async function deleteLog(id){
 // =====================================================
 // 시작
 // =====================================================
-try{ const t = localStorage.getItem('rd_tab'); if(['shelf','cal','stat'].includes(t)) S.tab = t; }catch(e){}
+try{ const t = localStorage.getItem('rd_tab'); if(['shelf','log','cal','stat'].includes(t)) S.tab = t; }catch(e){}
 render();
 load();
 </script>
