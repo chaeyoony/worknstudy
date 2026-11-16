@@ -948,6 +948,7 @@ const MODES = {
       { id:'calendar',  icon:'📅', label:'이번 달 일정' },
       { id:'habit',     icon:'🌱', label:'해빗트래커' },
       { id:'bucket',    icon:'🌟', label:'버킷리스트' },
+      { id:'books',     icon:'📚', label:'독서노트', href:'books/' },
     ],
     eventTags: ['일상','약속','가족','개인','기타'],
     noteGroups: [],
@@ -1206,11 +1207,15 @@ function generateAppIcon(bgColor) {
 // ===== NAV =====
 function buildNav() {
   const items = cfg().navItems;
-  const makeItem = (item, navId) => `<li><a href="#" class="nav-link ${currentPage===item.id?'active':''}" data-page="${item.id}" id="${navId}-${item.id}"><span class="icon">${item.icon}</span><span>${item.label}</span></a></li>`;
+  const makeItem = (item, navId) => `<li><a href="${item.href||'#'}" class="nav-link ${currentPage===item.id?'active':''}" data-page="${item.id}" ${item.href?`data-href="${item.href}"`:''} id="${navId}-${item.id}"><span class="icon">${item.icon}</span><span>${item.label}</span></a></li>`;
   document.getElementById('nav-list').innerHTML = items.map(i=>makeItem(i,'snav')).join('');
-  document.getElementById('bottom-nav-list').innerHTML = items.map(i=>`<li><a href="#" class="nav-link ${currentPage===i.id?'active':''}" data-page="${i.id}"><span class="bn-icon">${i.icon}</span>${i.label}</a></li>`).join('');
+  document.getElementById('bottom-nav-list').innerHTML = items.map(i=>`<li><a href="${i.href||'#'}" class="nav-link ${currentPage===i.id?'active':''}" data-page="${i.id}" ${i.href?`data-href="${i.href}"`:''}><span class="bn-icon">${i.icon}</span>${i.label}</a></li>`).join('');
   document.querySelectorAll('.nav-link').forEach(a=>{
-    a.addEventListener('click',e=>{e.preventDefault();navigateTo(a.dataset.page);});
+    a.addEventListener('click',e=>{
+      e.preventDefault();
+      if(a.dataset.href){ location.href = a.dataset.href; return; } // 외부 페이지(독서노트 등)로 이동
+      navigateTo(a.dataset.page);
+    });
   });
 }
 
