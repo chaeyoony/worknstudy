@@ -527,10 +527,32 @@ function openAddBook(){
       <button class="btn" style="flex:0 0 auto" onclick="searchBooks()">검색</button>
     </div>
     <div id="sres"><div class="empty">책 제목을 검색하면 제목·저자·표지가 자동으로 채워져요.<br>분야도 자동으로 분류해줘요.</div></div>
-    <div class="foot"><button class="btn ghost" onclick="openBookForm(null,{})">검색 없이 직접 입력</button></div>`);
+    <div id="kset" class="hidden fg" style="margin-top:14px">
+      <label>카카오 REST API 키 (이 기기에만 저장돼요)</label>
+      <input type="text" id="kk" value="${esc(getKakaoKey())}" placeholder="developers.kakao.com에서 발급한 REST API 키">
+      <div class="foot" style="margin-top:8px"><button class="btn sm" onclick="saveKakaoKey()">저장</button></div>
+    </div>
+    <div class="foot"><button class="btn ghost" onclick="$('kset').classList.toggle('hidden')">⚙ 검색 설정</button><button class="btn ghost" onclick="openBookForm(null,{})">검색 없이 직접 입력</button></div>`);
   setTimeout(()=>$('sq')?.focus(), 50);
 }
 
+// 카카오 책 검색 키 (developers.kakao.com → 내 애플리케이션 → REST API 키). 비워두면 앱 안 설정값(이 기기)을 사용
+const KAKAO_KEY = '';
+const getKakaoKey = () => KAKAO_KEY || (()=>{ try{ return localStorage.getItem('rd_kakao')||''; }catch(e){ return ''; } })();
+function saveKakaoKey(){
+  const v = $('kk').value.trim();
+  try{ localStorage.setItem('rd_kakao', v); }catch(e){}
+  toast(v ? '키를 저장했어요' : '키를 지웠어요');
+  $('kset').classList.add('hidden');
+}
+async function kakaoSearch(q){
+  const r = await fetch(`https://dapi.kakao.com/v3/search/book?query=${encodeURIComponent(q)}&size=20`, { headers:{ Authorization:'KakaoAK '+getKakaoKey() } });
+  if(!r.ok) throw new Error('카카오 '+r.status+(r.status===401?' (키가 올바르지 않아요)':''));
+  const j = await r.json();
+  return (j.documents||[]).map(d=>({ title:d.title, author:(d.authors||[]).join(', '), cover:httpsUrl(d.thumbnail), pages:null,
+    pub:[d.publisher, (d.datetime||'').slice(0,4)].filter(Boolean).join(' · '),
+    category: classify(d.title, [], d.contents) }));
+}
 const httpsUrl = u => (u||'').replace(/^http:\/\//,'https://').replace('&edge=curl','');
 async function googleSearch(q){
   const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&printType=books`);
@@ -558,17 +580,20 @@ async function openLibSearch(q){
 async function searchBooks(){
   const q = $('sq').value.trim(); if(!q) return;
   $('sres').innerHTML = '<div class="empty">검색 중…</div>';
-  let res = [];
-  try{ res = await googleSearch(q); }catch(e){ console.warn(e); }
-  if(res.length < 5){ try{ res = res.concat(await openLibSearch(q)); }catch(e){ console.warn(e); } }
+  let res = [], errs = [];
+  const tryRun = async (name, fn) => { try{ res = res.concat(await fn(q)); }catch(e){ console.warn(name, e); errs.push(`${name}: ${e.message||e}`); } };
+  if(getKakaoKey()) await tryRun('카카오', kakaoSearch);
+  if(res.length < 5) await tryRun('Google', googleSearch);
+  if(res.length < 5) await tryRun('OpenLibrary', openLibSearch);
   const seen = new Set();
   S.results = res.filter(r=>{ const k = (r.title+'|'+r.author).toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; });
+  const hint = !getKakaoKey() ? '<br><span class="small">한국 책 검색은 아래 <b>검색 설정</b>에서 카카오 키를 넣으면 훨씬 잘 돼요.</span>' : '';
   $('sres').innerHTML = S.results.length ? S.results.map((r,i)=>`
     <div class="res" onclick="pickResult(${i})">
       ${cover({title:r.title, cover_url:r.cover, category:r.category})}
       <div class="m"><b>${esc(r.title)}</b><span>${esc(r.author)||'저자 정보 없음'}</span><span>${esc(r.pub)}${r.pages?` · ${r.pages}쪽`:''}</span><div style="margin-top:4px">${tag(r.category)}</div></div>
     </div>`).join('')
-    : '<div class="empty">검색 결과가 없어요.<br>아래 <b>직접 입력</b>으로 등록할 수 있어요.</div>';
+    : `<div class="empty">${errs.length ? '검색 서비스에 연결하지 못했어요.<br><span class="small">'+esc(errs.join(' / '))+'</span>' : '검색 결과가 없어요.'}${hint}<br>아래 <b>직접 입력</b>으로도 등록할 수 있어요.</div>`;
 }
 function pickResult(i){
   const r = S.results[i];
