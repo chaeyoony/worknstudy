@@ -169,6 +169,16 @@ textarea { resize: vertical; min-height: 100px; }
 .check-meta { font-size: 11px; color: var(--sub); margin-top: 2px; }
 .empty-msg { color: var(--sub); font-size: 13px; text-align: center; padding: 24px 0; }
 
+/* ===== WEEKLY (요일별 보기) ===== */
+.wk-day-h { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 15px; padding-bottom: 8px; margin-bottom: 2px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.wk-day-h small { font-weight: 500; color: var(--sub); font-size: 12px; margin-left: 4px; }
+.wk-day-h .cnt { font-size: 12px; font-weight: 600; color: var(--sub); display: flex; gap: 8px; align-items: center; }
+.wk-day-h .cnt .plus { color: var(--accent); font-size: 16px; }
+.card.wk-today { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+.card.wk-empty { padding: 12px 18px; }
+.card.wk-empty .wk-day-h { border: none; padding: 0; margin: 0; color: var(--sub); font-weight: 600; }
+.wk-hint { font-size: 12px; color: var(--sub); margin-bottom: 12px; line-height: 1.5; }
+
 /* ===== PROGRESS BAR ===== */
 .progress-bar { background: var(--border); border-radius: 10px; height: 8px; overflow: hidden; margin-top: 8px; }
 .progress-fill { height: 100%; border-radius: 10px; background: var(--accent2); transition: width .4s; }
@@ -1251,8 +1261,9 @@ function renderDashboard() {
   document.getElementById('dash-title').textContent = `${cfg().label} 대시보드`;
   const td=todayStr(); const {start,end}=getWeekRange(0);
   const todayTodos=DB.todos.filter(t=>t.date===td&&!t.done);
-  const weekTodos=(DB.weekly||[]).filter(t=>t.week===start&&!t.done);
   const weekDays=[]; {let d=new Date(start+'T00:00:00'); for(let i=0;i<7;i++){const dt=new Date(d);dt.setDate(d.getDate()+i);weekDays.push(`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`);}}
+  const legacyW=(DB.weekly||[]).filter(t=>t.week===start);
+  const weekTodos=[...DB.todos.filter(t=>weekDays.includes(t.date)&&!t.done), ...legacyW.filter(t=>!t.done)];
   // 반복 일정은 실제 발생일(ds) 기준으로 수집
   const weekEvents=[];
   DB.events.forEach(e=>{const excs=e.exceptions?(typeof e.exceptions==='string'?JSON.parse(e.exceptions):e.exceptions):[];const isRecur=!!(parseRepeat(e.repeat)?.type&&parseRepeat(e.repeat)?.type!=='none');weekDays.forEach(ds=>{if(!excs.includes(ds)&&(e.date===ds||(!isRecur&&e.date_end&&ds>=e.date&&ds<=e.date_end)||isRecurring(e,ds))){weekEvents.push({e,ds});}});});
@@ -1275,9 +1286,13 @@ function renderDashboard() {
   // today todos
   const ttSorted=DB.todos.filter(t=>t.date===td).sort((a,b)=>priOrder(a.priority)-priOrder(b.priority));
   const ttHtml=ttSorted.length?ttSorted.map(t=>`<div class="check-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo('${t.id}',this.checked)"><div style="flex:1"><div class="check-label">${t.content}</div><div class="check-meta">${priTag(t.priority)} · ${t.ampm==='am'?'오전':'오후'}</div></div></div>`).join(''):'<div class="empty-msg">오늘 할 일 없음</div>';
-  // week todos (DB.weekly)
-  const wtSorted=(DB.weekly||[]).filter(t=>t.week===start).sort((a,b)=>priOrder(a.priority)-priOrder(b.priority));
-  const wtHtml=wtSorted.length?wtSorted.map(t=>`<div class="check-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleWeekly('${t.id}',this.checked)"><div><div class="check-label">${t.content}</div><div class="check-meta">${priTag(t.priority)}</div></div></div>`).join(''):'<div class="empty-msg">이번 주 할 일 없음</div>';
+  // 이번 주 할 일 = 이번 주 '오늘 할 일'(요일별) + 예전에 적어둔 주간 항목
+  const dn=['월','화','수','목','금','토','일'];
+  const wtItems=DB.todos.filter(t=>weekDays.includes(t.date)).sort((a,b)=>a.date.localeCompare(b.date)||(a.ampm===b.ampm?0:a.ampm==='am'?-1:1)||priOrder(a.priority)-priOrder(b.priority));
+  const wtHtml=(wtItems.length||legacyW.length)?
+    wtItems.map(t=>`<div class="check-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo('${t.id}',this.checked)"><div><div class="check-label">${t.content}</div><div class="check-meta">${dn[weekDays.indexOf(t.date)]}요일 · ${priTag(t.priority)}</div></div></div>`).join('')+
+    legacyW.map(t=>`<div class="check-item ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="toggleWeekly('${t.id}',this.checked)"><div><div class="check-label">${t.content}</div><div class="check-meta">${priTag(t.priority)}</div></div></div>`).join('')
+    :'<div class="empty-msg">이번 주 할 일 없음</div>';
 
   let grid=`
     <div class="card" style="grid-column:1/-1"><div class="dash-section-label">📅 이번 주 일정</div>${weHtml}</div>
@@ -1585,39 +1600,38 @@ function deleteFromOccurrence() {
 function renderWeekly() {
   const {start}=getWeekRange(weekOffset);
   document.getElementById('week-label').textContent = getWeekLabel(weekOffset) + ' ▾';
-  const weeklys=(DB.weekly||[]).filter(t=>t.week===start);
-  const itemsHtml=weeklys.length?weeklys.map(t=>`
-    <div class="check-item ${t.done?'done':''}" data-id="${t.id}">
-      <span class="drag-handle">⠿</span>
-      <input type="checkbox" ${t.done?'checked':''} onchange="toggleWeekly('${t.id}',this.checked)">
-      <div style="flex:1" onclick="openTodoEdit('${t.id}','weekly')" style="cursor:pointer"><div class="flex items-center gap8"><span class="check-label">${t.content}</span>${priTag(t.priority)}</div></div>
-      <button class="del-btn" onclick="quickDelWeekly('${t.id}')">✕</button>
-    </div>`).join(''):'<div class="empty-msg">할 일 없음</div>';
+  const days=getWeekDays(weekOffset), td=todayStr();
+  const ampmOrd=(a,b)=>(a.ampm===b.ampm?0:a.ampm==='am'?-1:1);
+  // '오늘 할 일'(DB.todos)을 요일별로 모아서 보여줌 — 같은 데이터라 체크가 서로 연동됨
+  const dayCards=days.map((d,i)=>{
+    const todos=DB.todos.filter(t=>t.date===d.date).sort((a,b)=>ampmOrd(a,b)||priOrder(a.priority)-priOrder(b.priority));
+    if(i>=5 && !todos.length) return '';   // 토·일은 할 일이 있을 때만 표시
+    const done=todos.filter(t=>t.done).length, isToday=d.date===td;
+    const items=todos.length?todos.map(t=>`
+      <div class="check-item ${t.done?'done':''}">
+        <input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo('${t.id}',this.checked)">
+        <div style="flex:1;cursor:pointer" onclick="openTodoEdit('${t.id}','today')"><div class="flex items-center gap8"><span class="check-label">${t.content}</span>${priTag(t.priority)}</div><div class="check-meta">${t.ampm==='am'?'오전':'오후'}</div></div>
+      </div>`).join(''):'';
+    return `<div class="card mb12 ${isToday?'wk-today':''} ${todos.length?'':'wk-empty'}">
+      <div class="wk-day-h" onclick="goTodayPage('${d.date}')"><span>${d.name}요일<small>${d.date.slice(5)}</small>${isToday?' 🔸':''}</span><span class="cnt">${todos.length?`${done}/${todos.length}`:''}<span class="plus">＋</span></span></div>
+      ${items}</div>`;
+  }).join('');
+  // 예전에 이 화면에서 직접 적어둔 항목이 남아 있으면 지워지지 않도록 따로 표시
+  const legacy=(DB.weekly||[]).filter(t=>t.week===start);
+  const legacyHtml=legacy.length?`<div class="card mb12"><div class="wk-day-h" style="cursor:default"><span>📌 이전에 적어둔 이번 주 할 일</span></div>${legacy.map(t=>`
+      <div class="check-item ${t.done?'done':''}">
+        <input type="checkbox" ${t.done?'checked':''} onchange="toggleWeekly('${t.id}',this.checked)">
+        <div style="flex:1;cursor:pointer" onclick="openTodoEdit('${t.id}','weekly')"><div class="flex items-center gap8"><span class="check-label">${t.content}</span>${priTag(t.priority)}</div></div>
+        <button class="del-btn" onclick="quickDelWeekly('${t.id}')">✕</button>
+      </div>`).join('')}</div>`:'';
   document.getElementById('weekly-list').innerHTML=`
-    <div class="card">
-      <div id="sort-weekly">${itemsHtml}</div>
-      <div class="quick-add-wrap" data-priority="mid">
-        <span class="quick-add-icon">+</span>
-        <button class="qpri" data-val="high" onclick="setQuickPri(this)">🔴</button>
-        <button class="qpri active" data-val="mid" onclick="setQuickPri(this)">🟡</button>
-        <button class="qpri" data-val="low" onclick="setQuickPri(this)">🟢</button>
-        <input class="quick-add-input" placeholder="할 일 추가... (Enter로 저장)" onkeydown="quickAddWeekTodo(event)">
-      </div>
-    </div>`;
-  initSortable('sort-weekly');
+    <div class="wk-hint">'오늘 할 일'에 적은 내용이 요일별로 모여요. 여기서 체크하면 오늘 할 일에서도 체크돼요. 요일을 누르면 그날 할 일을 추가할 수 있어요.</div>
+    ${dayCards}${legacyHtml}`;
 }
 document.getElementById('week-prev').onclick=()=>{weekOffset--;renderWeekly();};
 document.getElementById('week-next').onclick=()=>{weekOffset++;renderWeekly();};
-function quickAddWeekTodo(e){
-  if(e.key!=='Enter')return;
-  const val=e.target.value.trim();if(!val)return;
-  const wrap=e.target.closest('.quick-add-wrap');
-  const priority=wrap?.dataset.priority||'mid';
-  const week=getWeekRange(weekOffset).start;
-  if(!DB.weekly) DB.weekly=[];
-  DB.weekly.push({id:uid(),content:val,priority,week,done:false});
-  persist('weekly');renderPage(currentPage);
-}
+// 요일 제목을 누르면 '오늘 할 일' 화면에서 그날을 열어 바로 추가할 수 있게 함
+function goTodayPage(date){ navigateTo('today'); activeDay=date; renderToday(); }
 
 function openTodoModal(date) {
   document.getElementById('td-id').value='';
@@ -1692,8 +1706,8 @@ function toggleDateDD(type) {
       const label=getWeekLabel(off);
       const isActive=off===weekOffset;
       const isThisWeek=off===0;
-      const {start}=getWeekRange(off);
-      const cnt=(DB.weekly||[]).filter(t=>t.week===start).length;
+      const wd=getWeekDays(off);
+      const cnt=DB.todos.filter(t=>t.date>=wd[0].date&&t.date<=wd[6].date).length;
       items.push(`<div class="dd-item ${isActive?'active':''}" onclick="setWeekOffset(${off})">
         <span>${isThisWeek?'🔸 ':''}${label}</span>
         ${cnt?`<span class="dd-count">${cnt}</span>`:''}
