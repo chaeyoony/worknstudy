@@ -364,7 +364,7 @@ function htmlShelf(){
   return `
     <div class="h"><h1>📖 내 서재</h1><button class="btn" onclick="openAddBook()">＋ 책 추가</button></div>
     <div class="filters">
-      <input type="text" placeholder="서재에서 제목·저자 찾기" value="${esc(S.q)}" oninput="S.q=this.value;shelfList()">
+      <input type="text" lang="ko" placeholder="서재에서 제목·저자 찾기" value="${esc(S.q)}" oninput="S.q=this.value;shelfList()">
       <select onchange="S.fCat=this.value;render()">
         <option value="all">모든 분야</option>
         ${cats.map(c=>`<option ${S.fCat===c?'selected':''}>${esc(c)}</option>`).join('')}
@@ -408,7 +408,7 @@ function htmlLog(){
   return `
     <div class="h"><h1>✏️ 독서 기록</h1><button class="btn" onclick="openLog()">＋ 기록하기</button></div>
     <div class="filters">
-      <input type="text" placeholder="필사·생각 내용 검색" value="${esc(S.q2)}" oninput="S.q2=this.value;$('log-items').innerHTML=logItems()">
+      <input type="text" lang="ko" placeholder="필사·생각 내용 검색" value="${esc(S.q2)}" oninput="S.q2=this.value;$('log-items').innerHTML=logItems()">
       <select onchange="S.fLogBook=this.value;$('log-items').innerHTML=logItems()">
         <option value="all">모든 책</option>
         ${ids.map(b=>`<option value="${b.id}" ${S.fLogBook===b.id?'selected':''}>${esc(b.title)}</option>`).join('')}
@@ -587,13 +587,13 @@ function openAddBook(){
   openModal(`
     <h3>책 추가 ${xbtn}</h3>
     <div class="row" style="margin-bottom:12px">
-      <input type="text" id="sq" placeholder="책 제목 또는 저자 검색" style="flex:1" onkeydown="if(event.key==='Enter')searchBooks()">
+      <input type="text" lang="ko" id="sq" placeholder="책 제목 또는 저자 검색" style="flex:1" onkeydown="if(event.key==='Enter')searchBooks()">
       <button class="btn" style="flex:0 0 auto" onclick="searchBooks()">검색</button>
     </div>
     <div id="sres"><div class="empty">책 제목을 검색하면 제목·저자·표지가 자동으로 채워져요.<br>분야도 자동으로 분류해줘요.</div></div>
     <div id="kset" class="hidden fg" style="margin-top:14px">
       <label>카카오 REST API 키 (이 기기에만 저장돼요)</label>
-      <input type="text" id="kk" value="${esc(getKakaoKey())}" placeholder="developers.kakao.com에서 발급한 REST API 키">
+      <input type="text" lang="ko" id="kk" value="${esc(getKakaoKey())}" placeholder="developers.kakao.com에서 발급한 REST API 키">
       <div class="foot" style="margin-top:8px"><button class="btn sm" onclick="saveKakaoKey()">저장</button></div>
     </div>
     <div class="foot"><button class="btn ghost" onclick="$('kset').classList.toggle('hidden')">⚙ 검색 설정</button><button class="btn ghost" onclick="openBookForm(null,{})">검색 없이 직접 입력</button></div>`);
@@ -672,8 +672,8 @@ function openBookForm(b, pre){
     <h3>${b?'책 정보':'책 등록'} ${xbtn}</h3>
     ${b ? `<div class="bhead">${cover(d)}<div class="m"><b>${esc(d.title)}</b><div class="small">${esc(d.author)}</div><div style="margin:6px 0">${tag(d.category)}</div>
       ${d.total_pages?`<div class="small">${bookProgress(d).cur} / ${d.total_pages}쪽 (${bookProgress(d).pct}%)</div><div class="bar" style="margin-top:4px"><i style="width:${bookProgress(d).pct}%"></i></div>`:''}</div></div>` : (d.cover_url ? `<div style="display:flex;justify-content:center;margin-bottom:14px"><div style="width:90px">${cover(d)}</div></div>`:'')}
-    <div class="fg"><label>제목</label><input type="text" id="bf-title" value="${esc(d.title)}"></div>
-    <div class="fg"><label>저자</label><input type="text" id="bf-author" value="${esc(d.author)}"></div>
+    <div class="fg"><label>제목</label><input type="text" lang="ko" id="bf-title" value="${esc(d.title)}"></div>
+    <div class="fg"><label>저자</label><input type="text" lang="ko" id="bf-author" value="${esc(d.author)}"></div>
     <div class="row fg">
       <div><label>분야 (자동 분류 · 수정 가능)</label>
         <select id="bf-cat">${CATS.map(c=>`<option ${c.n===d.category?'selected':''}>${esc(c.n)}</option>`).join('')}</select></div>
@@ -688,7 +688,7 @@ function openBookForm(b, pre){
       <div><label>읽기 시작한 날</label><input type="date" id="bf-start" value="${d.started_at||''}"></div>
       <div><label>다 읽은 날</label><input type="date" id="bf-end" value="${d.finished_at||''}"></div>
     </div>
-    <div class="fg"><label>표지 이미지 주소 (비워두면 제목으로 표시)</label><input type="text" id="bf-cover" value="${esc(d.cover_url)}"></div>
+    <div class="fg"><label>표지 이미지 주소 (비워두면 제목으로 표시)</label><input type="text" lang="ko" id="bf-cover" value="${esc(d.cover_url)}"></div>
     ${b ? `<div class="sec" style="display:flex;justify-content:space-between;align-items:center">독서 기록 <button class="btn sm" onclick="openLog('${b.id}')">＋ 기록</button></div><div id="bf-logs"></div>`:''}
     <div class="foot">
       ${b?`<button class="btn danger" onclick="deleteBook('${b.id}')" style="margin-right:auto">삭제</button>`:''}
@@ -789,8 +789,8 @@ function openLog(bookId, logId, date){
       <div><label>끝 쪽</label><input type="number" id="lf-to" inputmode="numeric" value="${d.page_to??''}" oninput="lfCalc()"></div>
       <div><label>읽은 쪽수</label><input type="number" id="lf-pages" inputmode="numeric" value="${d.pages||''}" oninput="this.dataset.manual=1"></div>
     </div>
-    <div class="fg"><label>필사 (선택)</label><textarea id="lf-quote" placeholder="마음에 남은 문장을 옮겨 적어보세요">${esc(d.quote)}</textarea></div>
-    <div class="fg"><label>내 생각 (선택)</label><textarea id="lf-thought" placeholder="자유롭게 적어보세요">${esc(d.thought)}</textarea></div>
+    <div class="fg"><label>필사 (선택)</label><textarea lang="ko" id="lf-quote" placeholder="마음에 남은 문장을 옮겨 적어보세요">${esc(d.quote)}</textarea></div>
+    <div class="fg"><label>내 생각 (선택)</label><textarea lang="ko" id="lf-thought" placeholder="자유롭게 적어보세요">${esc(d.thought)}</textarea></div>
     ${l?'':`<div class="chk"><input type="checkbox" id="lf-done"><label for="lf-done">이 책을 다 읽었어요 (완독 처리)</label></div>`}
     <div class="foot">
       ${l?`<button class="btn danger" style="margin-right:auto" onclick="deleteLog('${l.id}')">삭제</button>`:''}
