@@ -843,7 +843,7 @@ body.all-mode #bottom-nav { display: none !important; }
     <input type="hidden" id="al-id">
     <div class="form-group"><label>날짜</label><input type="date" id="al-date"></div>
     <div class="form-group"><label>오늘 한 일</label><textarea lang="ko" id="al-did" placeholder="무엇을, 왜 했고 어떤 결과가 나왔는지 구체적으로"></textarea></div>
-    <div class="form-group"><label>AI 사용한 부분</label><textarea lang="ko" id="al-ai" placeholder="Claude에게 어떤 요청을 했고, 무엇을 해줬는지"></textarea></div>
+    <div class="form-group"><label>AI 활용 방식</label><textarea lang="ko" id="al-ai" placeholder="내가 AI에게 어떻게 요청·지시·검증했고, AI가 무엇을 해줬는지"></textarea></div>
     <div class="form-group"><label>나의 의견</label><textarea lang="ko" id="al-op" placeholder="AI가 틀려서 내가 고친 것(AI 답 → 내 정정) · AI와 달랐던 내 의견 · 내가 먼저 제시한 의견/기획"></textarea></div>
     <div class="form-group"><label>피드백</label><textarea lang="ko" id="al-fb" placeholder="다음엔 프롬프트를 어떻게 쓰면 좋을지 (예시 문장 포함)"></textarea></div>
     <div class="modal-footer">
@@ -2824,7 +2824,7 @@ async function bkDeleteTag(id) {
 
 // ---------- AI 사용 일지 (회사 = 업무, 학교 = 공부) ----------
 const AL = { rows:[], month:'all' };
-const AL_SECTIONS = [['did','📝 오늘 한 일',''],['ai_use','🤖 AI 사용한 부분',''],['my_opinion','💬 나의 의견','op'],['feedback','🔁 피드백','']];
+const AL_SECTIONS = [['did','📝 오늘 한 일',''],['ai_use','🤖 AI 활용 방식',''],['my_opinion','💬 나의 의견','op'],['feedback','🔁 피드백','']];
 const alEsc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const AL_PROMPT = `오늘 우리 대화를 바탕으로 'AI 사용 일지'를 써줘. 아래 형식 그대로, 다른 말은 붙이지 말고 출력해줘.
 
@@ -2837,7 +2837,7 @@ const AL_PROMPT = `오늘 우리 대화를 바탕으로 'AI 사용 일지'를 �
 날짜: YYYY-MM-DD
 구분: 업무, 공부, 일상 중 하나
 오늘 한 일: (무엇을, 왜 했고 어떤 결과가 나왔는지)
-AI 사용한 부분: (내가 Claude에게 어떤 요청을 했고, Claude가 구체적으로 무엇을 해줬는지)
+AI 활용 방식: (단순히 뭘 했는지가 아니라, 내가 AI를 어떻게 활용했는지. 어떤 정보·조건을 주고 어떤 식으로 요청·수정 지시·검증했고, AI는 무엇을 해줬는지. 단계별로 1) 2) 3))
 나의 의견: (① AI가 틀린 결론을 냈고 내가 정정한 것: AI의 원래 답 → 내가 고친 내용과 이유 ② AI 의견과 달랐던 내 의견 ③ 내가 먼저 제시한 의견·기획)
 피드백: (다음에는 프롬프트를 어떻게 쓰면 좋을지. 오늘 요청을 어떻게 고쳐 쓰면 더 좋았을지 예시 문장 포함)`;
 
@@ -2911,8 +2911,8 @@ async function alCopyPrompt() {
 }
 // 'label: 내용' 형식의 텍스트를 일지 여러 개로 변환 (여러 줄 내용 지원, 날짜 줄이 나올 때마다 새 일지)
 function alParse(text, defMode) {
-  const re = /^[\s>*#\-•]*\**(날짜|구분|오늘 한 일|AI 사용한 부분|AI 사용|나의 의견|피드백)\**\s*[:：]\**\s*/gm;
-  const keyOf = {'날짜':'date','구분':'mode','오늘 한 일':'did','AI 사용한 부분':'ai_use','AI 사용':'ai_use','나의 의견':'my_opinion','피드백':'feedback'};
+  const re = /^[\s>*#\-•]*\**(날짜|구분|오늘 한 일|AI 활용 방식|AI 사용한 부분|AI 사용|나의 의견|피드백)\**\s*[:：]\**\s*/gm;
+  const keyOf = {'날짜':'date','구분':'mode','오늘 한 일':'did','AI 활용 방식':'ai_use','AI 사용한 부분':'ai_use','AI 사용':'ai_use','나의 의견':'my_opinion','피드백':'feedback'};
   const hits = [...text.replace(/\r/g,'').matchAll(re)];
   const norm = text.replace(/\r/g,'');
   const entries = []; let cur = null;
