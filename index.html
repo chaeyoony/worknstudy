@@ -861,7 +861,7 @@ body.all-mode #bottom-nav { display: none !important; }
     <p class="text-sub" style="margin-bottom:10px;line-height:1.6">Claude 대화방에서 아래 문구를 보내면 일지를 정해진 형식으로 써줘요. 그 결과를 여기에 붙여넣으세요. 여러 날짜를 한꺼번에 붙여넣어도 돼요.</p>
     <button class="btn btn-ghost btn-sm mb12" onclick="alCopyPrompt()">📋 Claude에게 보낼 문구 복사</button>
     <div class="form-group"><label>저장할 곳 (결과에 '구분'이 있으면 그걸 따라요)</label>
-      <select id="al-imp-mode"><option value="work">회사 (업무)</option><option value="school">학교 (공부)</option></select></div>
+      <select id="al-imp-mode"><option value="work">회사 (업무)</option><option value="school">학교 (공부)</option><option value="life">일상</option></select></div>
     <div class="form-group"><textarea lang="ko" id="al-imp-text" style="min-height:180px" placeholder="날짜: 2026-11-27&#10;구분: 업무&#10;오늘 한 일: ...&#10;AI 사용한 부분: ...&#10;나의 의견: ...&#10;피드백: ..."></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-ailog-imp')">취소</button>
@@ -1014,10 +1014,13 @@ const MODES = {
     accentLight: '#e6f4e4',
     navItems: [
       { id:'dashboard', icon:'🏠', label:'대시보드' },
-      { id:'calendar',  icon:'📅', label:'이번 달 일정' },
-      { id:'habit',     icon:'🌱', label:'해빗트래커' },
-      { id:'bucket',    icon:'🌟', label:'버킷리스트' },
-      { id:'books',     icon:'📚', label:'독서노트', href:'books/' },
+      { id:'calendar',  icon:'📅', label:'이번 달 일정', short:'월 일정' },
+      { id:'weekly',    icon:'✅', label:'이번 주 할 일', short:'주 할 일' },
+      { id:'today',     icon:'☀️', label:'오늘 할 일', short:'오늘' },
+      { id:'habit',     icon:'🌱', label:'해빗트래커', short:'해빗' },
+      { id:'bucket',    icon:'🌟', label:'버킷리스트', short:'버킷' },
+      { id:'books',     icon:'📚', label:'독서노트', short:'독서', href:'books/' },
+      { id:'ailog',     icon:'🤖', label:'AI 사용 일지', short:'AI일지' },
     ],
     eventTags: ['일상','약속','가족','개인','기타'],
     noteGroups: [],
@@ -2832,7 +2835,7 @@ const AL_PROMPT = `오늘 우리 대화를 바탕으로 'AI 사용 일지'를 �
 - 대화에 없는 내용은 지어내지 말고, 없으면 '없음'이라고 써줘.
 
 날짜: YYYY-MM-DD
-구분: 업무 또는 공부
+구분: 업무, 공부, 일상 중 하나
 오늘 한 일: (무엇을, 왜 했고 어떤 결과가 나왔는지)
 AI 사용한 부분: (내가 Claude에게 어떤 요청을 했고, Claude가 구체적으로 무엇을 해줬는지)
 나의 의견: (① AI가 틀린 결론을 냈고 내가 정정한 것: AI의 원래 답 → 내가 고친 내용과 이유 ② AI 의견과 달랐던 내 의견 ③ 내가 먼저 제시한 의견·기획)
@@ -2898,7 +2901,7 @@ async function alDelete() {
   closeModal('modal-ailog'); alEnter();
 }
 function alOpenImport() {
-  document.getElementById('al-imp-mode').value = currentMode==='school' ? 'school' : 'work';
+  document.getElementById('al-imp-mode').value = ['school','life'].includes(currentMode) ? currentMode : 'work';
   document.getElementById('al-imp-text').value = '';
   openModal('modal-ailog-imp');
 }
@@ -2917,7 +2920,7 @@ function alParse(text, defMode) {
     const key = keyOf[m[1]], end = i+1<hits.length ? hits[i+1].index : norm.length;
     const val = norm.slice(m.index+m[0].length, end).trim().replace(/\*+$/,'').trim();
     if(key==='date') { cur = { date:val, mode:defMode, did:'', ai_use:'', my_opinion:'', feedback:'' }; entries.push(cur); }
-    else if(cur) { if(key==='mode') cur.mode = /공부|학교|학습|수업/.test(val) ? 'school' : /업무|회사|직장/.test(val) ? 'work' : defMode; else cur[key] = val==='없음' && key==='my_opinion' ? '' : val; }
+    else if(cur) { if(key==='mode') cur.mode = /공부|학교|학습|수업/.test(val) ? 'school' : /업무|회사|직장/.test(val) ? 'work' : /일상|개인|사이드/.test(val) ? 'life' : defMode; else cur[key] = val==='없음' && key==='my_opinion' ? '' : val; }
   });
   return entries.map(e=>{ const d = e.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/); return d ? { ...e, date:`${d[1]}-${pad(+d[2])}-${pad(+d[3])}` } : null; }).filter(Boolean);
 }
@@ -2925,8 +2928,8 @@ async function alImport() {
   const defMode = document.getElementById('al-imp-mode').value;
   const list = alParse(document.getElementById('al-imp-text').value, defMode);
   if(!list.length) return alert("일지를 찾지 못했어요. '날짜: 2026-11-27' 줄로 시작하는 형식인지 확인해주세요.");
-  const w = list.filter(e=>e.mode==='work').length, s = list.length-w;
-  if(!confirm(`일지 ${list.length}개를 추가할까요?${w?`\n업무 ${w}개`:''}${s?`\n공부 ${s}개`:''}`)) return;
+  const w = list.filter(e=>e.mode==='work').length, l = list.filter(e=>e.mode==='life').length, s = list.length-w-l;
+  if(!confirm(`일지 ${list.length}개를 추가할까요?${w?`\n업무 ${w}개`:''}${s?`\n공부 ${s}개`:''}${l?`\n일상 ${l}개`:''}`)) return;
   const { error } = await SB.from('dash_ai_log').insert(list.map(e=>({ mode:e.mode, log_date:e.date, did:e.did, ai_use:e.ai_use, my_opinion:e.my_opinion, feedback:e.feedback })));
   if(error) return alert('추가 실패: '+error.message);
   closeModal('modal-ailog-imp'); alEnter();
