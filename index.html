@@ -842,10 +842,10 @@ body.all-mode #bottom-nav { display: none !important; }
     <h3 id="al-h">AI 사용 일지</h3>
     <input type="hidden" id="al-id">
     <div class="form-group"><label>날짜</label><input type="date" id="al-date"></div>
-    <div class="form-group"><label>오늘 한 일</label><textarea lang="ko" id="al-did" placeholder="오늘 한 일을 적어주세요"></textarea></div>
-    <div class="form-group"><label>AI 사용한 부분</label><textarea lang="ko" id="al-ai" placeholder="Claude에게 어떤 부분을 맡겼는지"></textarea></div>
-    <div class="form-group"><label>나의 의견</label><textarea lang="ko" id="al-op" placeholder="AI가 틀려서 내가 고친 것 · AI와 달랐던 내 의견 · 내가 먼저 제시한 의견/기획"></textarea></div>
-    <div class="form-group"><label>피드백</label><textarea lang="ko" id="al-fb" placeholder="다음엔 프롬프트를 어떻게 쓰면 좋을지"></textarea></div>
+    <div class="form-group"><label>오늘 한 일</label><textarea lang="ko" id="al-did" placeholder="무엇을, 왜 했고 어떤 결과가 나왔는지 구체적으로"></textarea></div>
+    <div class="form-group"><label>AI 사용한 부분</label><textarea lang="ko" id="al-ai" placeholder="Claude에게 어떤 요청을 했고, 무엇을 해줬는지"></textarea></div>
+    <div class="form-group"><label>나의 의견</label><textarea lang="ko" id="al-op" placeholder="AI가 틀려서 내가 고친 것(AI 답 → 내 정정) · AI와 달랐던 내 의견 · 내가 먼저 제시한 의견/기획"></textarea></div>
+    <div class="form-group"><label>피드백</label><textarea lang="ko" id="al-fb" placeholder="다음엔 프롬프트를 어떻게 쓰면 좋을지 (예시 문장 포함)"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="al-del" style="display:none;margin-right:auto" onclick="alDelete()">삭제</button>
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-ailog')">취소</button>
@@ -2825,12 +2825,18 @@ const AL_SECTIONS = [['did','📝 오늘 한 일',''],['ai_use','🤖 AI 사용�
 const alEsc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const AL_PROMPT = `오늘 우리 대화를 바탕으로 'AI 사용 일지'를 써줘. 아래 형식 그대로, 다른 말은 붙이지 말고 출력해줘.
 
+작성 규칙: 한두 줄로 뭉뚱그리지 말고, 나중에 다시 읽어도 상황이 기억나도록 구체적으로 써줘.
+- 작업 이름, 파일·화면 이름, 수치, 용어처럼 구체적인 대상과 결과를 적어줘.
+- 내가 실제로 한 요청은 가능하면 그대로 인용해줘.
+- 내용이 여러 개면 1) 2) 3) 으로 나눠서 써줘.
+- 대화에 없는 내용은 지어내지 말고, 없으면 '없음'이라고 써줘.
+
 날짜: YYYY-MM-DD
 구분: 업무 또는 공부
-오늘 한 일: (오늘 내가 한 일을 간단히)
-AI 사용한 부분: (내가 Claude에게 맡기거나 도움받은 부분)
-나의 의견: (AI가 틀린 결론을 내려 내가 정정한 것 / AI 의견과 달랐던 내 의견 / 내가 먼저 제시한 의견·기획. 없으면 '없음')
-피드백: (다음에는 AI 프롬프트를 어떻게 쓰면 좋을지)`;
+오늘 한 일: (무엇을, 왜 했고 어떤 결과가 나왔는지)
+AI 사용한 부분: (내가 Claude에게 어떤 요청을 했고, Claude가 구체적으로 무엇을 해줬는지)
+나의 의견: (① AI가 틀린 결론을 냈고 내가 정정한 것: AI의 원래 답 → 내가 고친 내용과 이유 ② AI 의견과 달랐던 내 의견 ③ 내가 먼저 제시한 의견·기획)
+피드백: (다음에는 프롬프트를 어떻게 쓰면 좋을지. 오늘 요청을 어떻게 고쳐 쓰면 더 좋았을지 예시 문장 포함)`;
 
 async function alEnter() {
   document.getElementById('al-list').innerHTML = '<div class="empty-msg">불러오는 중…</div>';
